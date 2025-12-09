@@ -33,8 +33,12 @@ export class UsersService {
     return this.usersRepository.find();
   }
 
-  async findOne(id: number): Promise<User> {
-    return  await this.usersRepository.findOneBy({ id });
+  async findOne(id: string): Promise<User> {
+    const user = await this.usersRepository.findOneBy({ id });
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    return  user;
   }
 
   async remove(id: number): Promise<void> {
@@ -47,7 +51,7 @@ export class UsersService {
   }
   return user;
 }
-  async ChangeRole(id: number, role: Role): Promise<User> {
+  async ChangeRole(id: string, role: Role): Promise<User> {
     const user = await this.usersRepository.findOneBy({ id });
     if (!user) {
       throw new HttpException("user not founnd ", HttpStatus.NOT_FOUND);
