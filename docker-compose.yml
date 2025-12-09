@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: telemetry-db
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - telemetry-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d telemetry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: telemetry-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - telemetry-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./telemetry-backend
+      dockerfile: Dockerfile
+    container_name: telemetry-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://admin:password123@postgres:5432/telemetry
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: interview-secret-key-123
+      NODE_ENV: development
+      PORT: 3000
+    volumes:
+      - ./telemetry-backend/src:/app/src     # Hot reload
+      - /app/node_modules                    # Keep modules inside container
+      - ./uploads:/app/uploads               # Shared uploads
+    networks:
+      - telemetry-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: telemetry-dashboard
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    volumes:
+      - ./frontend:/app                      # Hot reload for Next.js
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - telemetry-net
+
+volumes:
+  postgres_data:
+
+networks:
+  telemetry-net:
+    driver: bridge

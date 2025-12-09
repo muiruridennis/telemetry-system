@@ -1,0 +1,50 @@
+import { Role } from '../../auth/enums/role.enum';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { Device } from '../../devices/entities/device.entities';
+
+@Entity()
+export class User {
+  @PrimaryGeneratedColumn('uuid')
+  id: number;
+
+  @Column()
+  firstName: string;
+
+  @Column()
+  lastName: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column()
+  password: string;
+
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.VIEWER,
+  })
+  role: Role;
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @OneToMany(() => Device, (device) => device.user)
+  devices: Device[];
+}
