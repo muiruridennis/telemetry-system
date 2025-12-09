@@ -9,5 +9,6 @@ import { AlertsModule } from '../alerts/alerts.module';
   imports: [TypeOrmModule.forFeature([Telemetry]), AlertsModule],
   providers: [TelemetryService],
   controllers: [TelemetryController],
+  exports: [TelemetryService],
 })
 export class TelemetryModule {}

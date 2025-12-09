@@ -6,7 +6,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
 
   return {
     type: 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
+    host: process.env.DATABASE_HOST || 'postgres',
     port: parseInt(process.env.DATABASE_PORT || '5432'),
     username: process.env.DATABASE_USERNAME || 'admin',
     password: process.env.DATABASE_PASSWORD || 'password123',

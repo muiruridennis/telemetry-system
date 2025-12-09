@@ -8,5 +8,6 @@ import { Alert } from './entities/alert-rule.entity';
   imports: [TypeOrmModule.forFeature([Alert])],
   providers: [AlertsService],
   controllers: [AlertsController],
+  exports:[AlertsService]
 })
 export class AlertsModule {}
