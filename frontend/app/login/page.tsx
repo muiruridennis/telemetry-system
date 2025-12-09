@@ -26,7 +26,7 @@ export default function LoginPage() {
     const data = await res.json();
     localStorage.setItem('access_token', data.access_token);
 
-    router.push('/admin');
+    router.push('/dashboard');
   };
 
   return (

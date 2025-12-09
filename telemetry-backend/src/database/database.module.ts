@@ -7,13 +7,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
   imports: [
     ConfigModule.forRoot({
       load: [databaseConfig],
-      isGlobal: true, // makes ConfigService globally available
+      isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      inject: [ConfigService], // ✅ inject ConfigService, not ConfigModule
+      inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        ...configService.get('database'), // database config from your file
+        ...configService.get('database'), 
       }),
     }),
   ],

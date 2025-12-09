@@ -1,5 +1,6 @@
 import { registerAs } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { join } from 'path';
 
 export default registerAs('database', (): TypeOrmModuleOptions => {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -11,26 +12,16 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     username: process.env.DATABASE_USERNAME || 'admin',
     password: process.env.DATABASE_PASSWORD || 'password123',
     database: process.env.DATABASE_NAME || 'telemetry',
+    autoLoadEntities: true,
 
-    // Entities
-    entities: [__dirname + '/..//*.entity{.ts,.js}'],
-
-    // Migrations
     migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-    migrationsRun: !isProduction, // Auto-run migrations in dev
-
-    // Synchronize (ONLY for development!)
-    synchronize: !isProduction,
-
-    // Logging
-    logging: !isProduction,
-
-    // SSL (for production)
+    migrationsRun: !isProduction,
+    synchronize: true,
+    logging: true,
     ssl: isProduction ? { rejectUnauthorized: false } : false,
 
-    // Connection pooling
     extra: {
-      max: 20, // Maximum connections
+      max: 20,
       connectionTimeoutMillis: 5000,
     },
   };

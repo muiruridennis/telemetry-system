@@ -6,7 +6,6 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 import { Telemetry } from '../../telemetry/entities/telemetry.entity';
 
 @Entity()

@@ -6,10 +6,10 @@ import {
   ManyToOne,
   Index,
 } from 'typeorm';
-import { Device } from '../../devices/entities/device.entities';
+import { Device } from '../../devices/entities/device.entity';
 
 @Entity()
-@Index(['deviceId', 'timestamp'])
+@Index(['deviceId', 'createdAt'])
 export class Telemetry {
   @PrimaryGeneratedColumn('uuid')
   id: string;

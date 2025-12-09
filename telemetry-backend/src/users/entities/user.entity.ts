@@ -5,9 +5,7 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
 } from 'typeorm';
-import { Device } from '../../devices/entities/device.entities';
 
 @Entity()
 export class User {
@@ -45,6 +43,4 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => Device, (device) => device.user)
-  devices: Device[];
 }
