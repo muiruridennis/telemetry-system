@@ -1,83 +1,164 @@
 import { Injectable } from '@nestjs/common';
-import * as PDFDocument from 'pdfkit';
-import * as fs from 'fs';
-import * as path from 'path';
-import { DevicesService } from '../devices/devices.service';
+import PDFDocument from 'pdfkit';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { DevicesService } from '../devices/devices.service';
 
 @Injectable()
-export class ReportsService {
-    constructor(
-        private telemetryService: TelemetryService,
-        private deviceService: DevicesService,
-        private alertsService: AlertsService
-    ) { }
+export class ReportService {
+  constructor(
+    private telemetryService: TelemetryService,
+    private alertsService: AlertsService,
+    private devicesService: DevicesService,
+  ) {}
+
+  /**
+   * Generate a PDF report
+   */
+  async generatePdfReport(
+    deviceId: string,
+    startDate: Date,
+    endDate: Date,
+    userId: string,
+  ): Promise<Buffer> {
+    // Get data
+    const device = await this.devicesService.findByDeviceId(deviceId);
+    const telemetry = await this.telemetryService.findByDeviceId(
+      deviceId,
+      1,
+      1000, // Limit to 1000 records
+      startDate,
+      endDate,
+    );
     
-    async generatePdf(deviceId) {
-        const device = await this.deviceService.findByDeviceId(deviceId);
-        const telemetry = await this.telemetryService.findByDeviceIAd(deviceId);
-        const alerts = await this.alertsService.findByDeviceIAd(deviceId);
+    const alertSummary = await this.alertsService.getAlertSummary(
+      deviceId,
+      startDate,
+      endDate,
+    );
 
-        const doc = new PDFDocument();
-        const chunks: Uint8Array[] = [];
-
-        doc.on('data', (chunk) => {
-            chunks.push(chunk);
-        });
-        const logoPath = path.resolve(__dirname, '../../assets/logo.png');
-        if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, 50, 50, { width: 100 });
-        }
-        doc.fontSize(20).text(
-            `Telemetry Report : ${device.name} || ${device.deviceId}`,
-            {
-                align: 'center',
-                underline: true,
-                
-            });
-        doc.moveDown();
-
-        doc.fontSize(12).text(
-            `telemetry Data: }`,{
-                align: 'center',
-                underline: true,
-            });
-        doc.moveDown(0.5);
-
-        doc.fontSize(11);
-            telemetry.slice(0, 20).forEach((t) => {
-                doc.text(`
-                Temperature: ${t.temperature} °C
-                Humidity: ${t.humidity} %
-                Cumulative Power: ${t.cumulativePower}
-                Current: ${t.current}
-                Status: ${t.status}
-                Timestamp: ${t.createdAt}
-                `);
-            })
-        doc.addPage();
-
-        doc.fontSize(12).text(
-            `Alerts Data: }`,{
-                align: 'center',
-                underline: true,
-            });
-        doc.moveDown(0.5);
-        alerts.slice(0, 20).forEach((a) => {
-            doc.text(`
-            Alert Type: ${a.type}
-            Alert Message: ${a.message}
-            Alert Timestamp: ${a.createdAt}
-                Resolved: ${a.resolved ? "Yes" : "No"}
-                Severity: ${a.severity}
-            `);
-        })
-
-        doc.end();
-        return Buffer.concat(chunks);
-
+    // Create PDF
+    const doc = new PDFDocument({ margin: 50 });
+    const buffers: Buffer[] = [];
+    
+    doc.on('data', buffers.push.bind(buffers));
+    
+    // Header
+    doc.fontSize(20).text('Telemetry System Report', { align: 'center' });
+    doc.moveDown();
+    
+    // Device Info
+    doc.fontSize(14).text('Device Information:');
+    doc.fontSize(12).text(`Device ID: ${device.deviceId}`);
+    doc.text(`Name: ${device.name}`);
+    doc.text(`Type: ${device.type}`);
+    doc.text(`Location: ${device.location}`);
+    doc.moveDown();
+    
+    // Report Period
+    doc.fontSize(14).text('Report Period:');
+    doc.fontSize(12).text(`From: ${startDate.toLocaleString()}`);
+    doc.text(`To: ${endDate.toLocaleString()}`);
+    doc.moveDown();
+    
+    // Alert Summary
+    doc.fontSize(14).text('Alert Summary:');
+    doc.fontSize(12).text(`Total Alerts: ${alertSummary.total}`);
+    
+    Object.entries(alertSummary.byType).forEach(([type, count]) => {
+      doc.text(`${type}: ${count} alerts`);
+    });
+    doc.moveDown();
+    
+    // Recent Readings Table
+    doc.fontSize(14).text('Recent Telemetry Readings:');
+    
+    if (telemetry.data.length > 0) {
+      // Simple table
+      const tableTop = doc.y;
+      const headers = ['Time', 'Temp (°C)', 'Flow (m³/h)', 'Power (W)', 'Status'];
+      const columnWidths = [100, 80, 80, 80, 80];
+      
+      // Headers
+      headers.forEach((header, i) => {
+        doc.text(header, 50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0), tableTop);
+      });
+      
+      doc.moveDown();
+      
+      // Data rows (first 10 records)
+      telemetry.data.slice(0, 10).forEach((reading, rowIndex) => {
+        const y = tableTop + 30 + (rowIndex * 20);
+        const row = [
+          new Date(reading.timestamp).toLocaleTimeString(),
+          reading.temperature.toFixed(1),
+          reading.flowRate.toFixed(1),
+          reading.power ? reading.power.toFixed(1) : 'N/A',
+          reading.status,
+        ];
         
-
+        row.forEach((cell, i) => {
+          doc.text(
+            cell,
+            50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0),
+            y,
+          );
+        });
+      });
+    } else {
+      doc.text('No telemetry data in this period');
     }
+    
+    doc.moveDown();
+    
+    // Footer
+    doc.fontSize(10)
+      .text(`Generated on: ${new Date().toLocaleString()}`, 50, doc.page.height - 100)
+      .text(`Generated by: User ID ${userId}`, 50, doc.page.height - 85)
+      .text('Telemetry Monitoring System', { align: 'center' }, doc.page.height - 50);
+    
+    doc.end();
+    
+    return new Promise((resolve) => {
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(buffers);
+        resolve(pdfBuffer);
+      });
+    });
+  }
+async generateSystemReport(
+  startDate: Date,
+  endDate: Date,
+  userId: string,
+): Promise<Buffer> {
+  const devices = await this.devicesService.findAll();
+  const systemAlerts = await this.alertsService.getAlertSummary(undefined, startDate, endDate);
+  
+  const doc = new PDFDocument();
+  
+  doc.fontSize(16).text('Telemetry System Health Report');
+  doc.text(`Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+  
+  // System Summary
+  doc.moveDown().fontSize(14).text('System Summary:');
+  doc.fontSize(12).text(`Total Devices: ${devices.length}`);
+  doc.text(`Active Devices: ${devices.filter(d => d.isActive).length}`);
+  doc.text(`Total Alerts: ${systemAlerts.total}`);
+  doc.text(`Critical Alerts: ${systemAlerts.bySeverity?.CRITICAL || 0}`);
+  
+  // Device Status Summary
+  doc.moveDown().fontSize(14).text('Device Status:');
+  devices.forEach(device => {
+    const status = device.isActive ? '✅ Active' : '❌ Inactive';
+    doc.fontSize(10).text(`${device.name} (${device.deviceId}): ${status} - ${device.location}`);
+  });
+  
+  // Alert Distribution
+  doc.addPage().fontSize(14).text('Alert Distribution:');
+  Object.entries(systemAlerts.byType || {}).forEach(([type, count]) => {
+    doc.fontSize(10).text(`${type}: ${count} alerts`);
+  });
+  
+  return Buffer.from([]);
+}
 }

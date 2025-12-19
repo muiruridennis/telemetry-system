@@ -11,7 +11,7 @@ import { Telemetry } from '../../telemetry/entities/telemetry.entity';
 @Entity()
 export class Device {
   @PrimaryGeneratedColumn('uuid')
-  id: number;
+  id: string;
 
   @Column()
   name: string;
@@ -30,6 +30,7 @@ export class Device {
 
   @Column()
   isActive: boolean;
+
   @CreateDateColumn()
   lastSeen: Date;
 
@@ -38,4 +39,7 @@ export class Device {
 
   @CreateDateColumn()
   createdAt: Date;
+  
+  @Column({ nullable: true })
+    refreshToken: string;
 }

@@ -9,6 +9,9 @@ COPY nest-cli.json ./
 # Install dependencies
 RUN npm ci
 
+# Copy source code
+COPY . .
+
 # Expose port
 EXPOSE 3000
 

@@ -35,6 +35,8 @@ services:
     build:
       context: ./telemetry-backend
       dockerfile: Dockerfile
+    env_file:
+      - ./telemetry-backend/.env
     container_name: telemetry-api
     depends_on:
       postgres:
@@ -43,16 +45,41 @@ services:
         condition: service_healthy
     ports:
       - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://admin:password123@postgres:5432/telemetry
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: interview-secret-key-123
-      NODE_ENV: development
-      PORT: 3000
-    volumes:
-      - ./telemetry-backend/src:/app/src     # Hot reload
-      - /app/node_modules                    # Keep modules inside container
-      - ./uploads:/app/uploads               # Shared uploads
+    # environment:
+    #   DATABASE_URL: postgresql://admin:password123@postgres:5432/telemetry
+    #   REDIS_URL: redis://redis:6379
+    #   JWT_SECRET: interview-secret-key-123
+    #   NODE_ENV: development
+    #   PORT: 3000
+    develop:
+      watch:
+      # Sync all source changes for hot reload
+        - path: ./telemetry-backend
+          target: /app
+          action: sync
+          ignore:
+            - node_modules/
+            - .git/
+            - dist/
+            - test/
+            - coverage/
+            - "*.log"
+            - .env*
+        
+        # Rebuild on dependency changes
+        - path: ./telemetry-backend/package.json
+          action: rebuild
+        
+        - path: ./telemetry-backend/package-lock.json
+          action: rebuild
+        
+        # Rebuild on config changes (optional, but recommended)
+        - path: ./telemetry-backend/tsconfig.json
+          action: rebuild
+        
+        - path: ./telemetry-backend/nest-cli.json
+          action: rebuild         # Keep modules inside container
+
     networks:
       - telemetry-net
 
@@ -61,13 +88,24 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: telemetry-dashboard
+    env_file:
+      - ./frontend/.env
     ports:
       - "3001:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3000
-    volumes:
-      - ./frontend:/app                      # Hot reload for Next.js
-      - /app/node_modules
+    develop:
+      # we specify the files to watch for changes
+      watch:
+        # it'll watch for changes in package.json and package-lock.json and rebuild the container if there are any changes
+        - path: ./frontend/package.json
+          action: rebuild
+        - path: ./frontend/package-lock.json
+          action: rebuild
+        # it'll watch for changes in the frontend directory and sync the changes with the container real time
+        - path: ./frontend
+          target: /app
+          action: sync
     depends_on:
       - api
     networks:

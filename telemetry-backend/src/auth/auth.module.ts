@@ -7,13 +7,16 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy'; 
 import { DeviceJwtStrategy } from './strategies/device-jwt.strategy'; 
-import { JwtAuthGuard } from './guards/jwt-auth.guard'; 
-import { DeviceAuthGuard } from './guards/device-auth.guard'; 
+import { JwtAuthenticationGuard } from './guards/jwt-auth.guard'; 
+import { DeviceJwtGuard } from './guards/device-auth.guard'; 
+import { LocalStrategy } from './strategies/local.strategy';
+import { DevicesModule } from '../devices/devices.module';
 
 @Module({
   imports: [
     UsersModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }),  
+    DevicesModule,
+    PassportModule,
     ConfigModule, // ADD for environment variables
     JwtModule.registerAsync({ // Use async for config
       imports: [ConfigModule],
@@ -21,7 +24,7 @@ import { DeviceAuthGuard } from './guards/device-auth.guard';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'interview-secret-2025',
         signOptions: {
-          expiresIn: '1d',
+          expiresIn: '30d',
           issuer: 'iot-platform',
         },
       }),
@@ -31,15 +34,13 @@ import { DeviceAuthGuard } from './guards/device-auth.guard';
     AuthService,
     JwtStrategy,          
     DeviceJwtStrategy,    
-    JwtAuthGuard,        
-    DeviceAuthGuard,     
+    JwtAuthenticationGuard,        
+    DeviceJwtGuard,   
+    LocalStrategy  
   ],
   controllers: [AuthController],
   exports: [
     AuthService,
-    JwtModule,           // Export so other modules can use JwtService
-    JwtAuthGuard,        // Export guards
-    DeviceAuthGuard,
   ],
 })
 export class AuthModule {}

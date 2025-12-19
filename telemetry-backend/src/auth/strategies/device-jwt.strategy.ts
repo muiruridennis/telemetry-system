@@ -1,31 +1,56 @@
-import { Injectable } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import { ConfigService } from "@nestjs/config";
+import { DevicesService } from "../../devices/devices.service";
 
 @Injectable()
 export class DeviceJwtStrategy extends PassportStrategy(Strategy, 'device-jwt') {
-  constructor(private configService: ConfigService) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'secretKey',
-      issuer: 'iot-platform',
-      audience: 'device-api',
-    });
-  }
-
-  async validate(payload: any) {
-    // For devices, ensure they have device role
-    if (payload.role !== 'device') {
-      throw new Error('Invalid token type for device access');
+    constructor(
+        private configService: ConfigService,
+        private devicesService: DevicesService
+    ) {
+        super({
+            jwtFromRequest: ExtractJwt.fromExtractors([
+                ExtractJwt.fromAuthHeaderAsBearerToken(),
+                ExtractJwt.fromUrlQueryParameter('device_token'),
+            ]),
+            ignoreExpiration: false,
+            secretOrKey: configService.get('DEVICE_JWT_SECRET') || configService.get('JWT_SECRET'),
+            issuer: 'telemetry-platform-device',
+            audience: 'telemetry-api',
+        });
     }
-    
-    return {
-      deviceId: payload.deviceId,
-      authKey: payload.authKey,
-      role: payload.role,
-      permissions: payload.permissions,
-    };
-  }
+
+    async validate(payload: any) {
+        console.log('🔐 JWT Payload received:', payload); // Debug
+        
+        // Check if it's a device token
+        if (!payload.deviceId) {
+            throw new UnauthorizedException('Invalid device token');
+        }
+
+        // Verify device exists and is active
+        const device = await this.devicesService.findByDeviceId(payload.deviceId);
+        if (!device || !device.isActive) {
+            throw new UnauthorizedException('Device not found or inactive');
+        }
+
+        // Return device context with CORRECT field mapping
+        return {
+            // From JWT token
+            deviceId: payload.deviceId,
+            deviceName: payload.deviceName,           // ← FIXED: deviceName not name
+            deviceType: payload.deviceType,
+            deviceLocation: payload.deviceLocation,   // ← FIXED: deviceLocation not location
+            // From device
+            isActive: device.isActive,
+            
+            // Additional context
+            permissions: payload.permissions || ['telemetry:send'],
+            role: 'device',
+            isDevice: true,
+            
+        };
+    }
 }
